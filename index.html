@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="target-densitydpi=device-dpi, width=480px, user-scalable=no">
+    <title>给爷中</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+      }
+      .operate,
+      .list {
+        display: flex;
+        padding: 10px 20px;
+        justify-content: center;
+      }
+      .operate button {
+        padding: 10px 20px;
+        margin: 10px 20px;
+      }
+      .list .sphere {
+        display: flex;
+        margin: 0 5px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        font-size: 22px;
+        color: #ffffff;
+        text-align: center;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12), 0 0 6px rgba(0, 0, 0, 0.04);
+      }
+      .bg-blue {
+        background: radial-gradient(circle at 30% 70%, #0aafe6, #222222);
+      }
+      .bg-red {
+        background: radial-gradient(circle at 30% 70%, #ff0000, #222222);
+      }
+      .mr-20 {
+        margin-left: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div>
+        <div class="operate" v-if="load">
+          <button @click="random">大乐透随机5注</button>
+          <button>暂无功能</button>
+          <button @click="clearData">清除</button>
+        </div>
+        <div class="list" v-for="(i,index) in dataList" v-if="dataList.length">
+          <div
+            class="sphere bg-red"
+            v-for="red in i.redList"
+            :key="`${index}${red}red`"
+          >
+            {{red}}
+          </div>
+          <div class="mr-20"></div>
+          <div
+            class="sphere bg-blue"
+            v-for="blue in i.blueList"
+            :key="`${index}${blue}blue`"
+          >
+            {{blue}}
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+      var vm = new Vue({
+        el: "#app",
+        data: {
+          load: false,
+          redNum: {},
+          blueNum: {},
+          redNumMax: [],
+          redNumMin: [],
+          blueNumMax: [],
+          blueNumMin: [],
+          redNumMix: [],
+          blueNumMix: [],
+          dataList: [
+            // {
+            //   redList: [],
+            //   blueList: [],
+            // },
+          ],
+        },
+        mounted() {
+          this.redNum = this.initNumList(35);
+          this.blueNum = this.initNumList(12);
+          this.getData();
+        },
+        methods: {
+          getData() {
+            axios
+              .get(
+                "https://webapi.sporttery.cn/gateway/lottery/getHistoryPageListV1.qry",
+                {
+                  params: {
+                    gameNo: 85,
+                    provinceId: 0,
+                    pageSize: 100,
+                    isVerify: 1,
+                    pageNo: 1,
+                  },
+                }
+              )
+              .then((res) => {
+                let data = res.data;
+                //   console.log(data);
+                if (data.success) {
+                  let list = data.value.list;
+                  let arr = list.map((i) => {
+                    let obj = {};
+                    let list = i.lotteryDrawResult.split(" ");
+                    obj.red = list.slice(0, 5);
+                    obj.blue = list.slice(5, 7);
+                    return obj;
+                  });
+                  // console.log(arr);
+                  let redListAll = [];
+                  let blueListAll = [];
+                  arr.forEach((i) => {
+                    redListAll = [...redListAll, ...i.red];
+                    blueListAll = [...blueListAll, ...i.blue];
+                  });
+                  // console.log(redListAll, blueListAll);
+                  redListAll.forEach((i) => (this.redNum[i] += 1));
+                  blueListAll.forEach((i) => (this.blueNum[i] += 1));
+                  this.numSort();
+                  this.load = true;
+                } else {
+                  alert(data.errorMessage);
+                }
+              })
+              .catch(function (error) {
+                alert(error);
+              });
+          },
+          /**
+           * 初始化数字列表
+           */
+          initNumList(num) {
+            let obj = {};
+            for (let i = 1; i <= num; i++) {
+              if (i < 10) obj[`0${i}`] = 0;
+              else obj[`${i}`] = 0;
+            }
+            return obj;
+          },
+          /**
+           * 数字排序
+           */
+          numSort() {
+            let redNumSort = Object.keys(this.redNum).sort((a, b) => {
+              return this.redNum[b] - this.redNum[a];
+            });
+            let blueNumSort = Object.keys(this.blueNum).sort((a, b) => {
+              return this.blueNum[b] - this.blueNum[a];
+            });
+            this.redNumMax = redNumSort.slice(0, 7);
+            this.blueNumMax = blueNumSort.slice(0, 3);
+            this.redNumMin = redNumSort.slice(-7);
+            this.blueNumMin = blueNumSort.slice(-3);
+            this.redNumMix = [...this.redNumMax, ...this.redNumMin];
+            this.blueNumMix = [...this.blueNumMax, ...this.blueNumMin];
+            // console.log(redNumSort, blueNumSort);
+            // console.log(this.redNumMax, this.blueNumMax);
+            // console.log(this.redNumMin, this.blueNumMin);
+            // console.log(this.redNumMix, this.blueNumMix);
+          },
+          clearData() {
+            this.dataList = [];
+          },
+          random() {
+            while (this.dataList.length < 5) {
+              let redList = [];
+              let blueList = [];
+              while (redList.length < 5) {
+                let num = Math.floor(Math.random() * this.redNumMix.length);
+                if (redList.indexOf(this.redNumMix[num]) === -1) {
+                  redList.push(this.redNumMix[num]);
+                }
+              }
+              while (blueList.length < 2) {
+                let num = Math.floor(Math.random() * this.blueNumMix.length);
+                if (blueList.indexOf(this.blueNumMix[num]) === -1) {
+                  blueList.push(this.blueNumMix[num]);
+                }
+              }
+              this.dataList.push({
+                redList: redList.sort(),
+                blueList: blueList.sort(),
+              });
+            }
+          },
+        },
+      });
+    </script>
+  </body>
+</html>
